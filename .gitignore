@@ -1,0 +1,4 @@
+*.swp
+obj/*
+ios_instruments_client
+ios_instruments_client.dSYM
