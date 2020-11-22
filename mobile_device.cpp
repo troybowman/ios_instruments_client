@@ -39,6 +39,8 @@ bool mobile_device_lib_t::load(void)
   BINDFUN(AMDeviceSecureStartService, mach_error_t (*)(am_device *, CFStringRef, int *, am_device_service_connection **));
   BINDFUN(AMDServiceConnectionInvalidate, void (*)(am_device_service_connection *));
   BINDFUN(AMDServiceConnectionGetSocket, int (*)(am_device_service_connection *));
+  BINDFUN(AMDServiceConnectionSend, ssize_t (*)(am_device_service_connection *, const void *, size_t));
+  BINDFUN(AMDServiceConnectionReceive, ssize_t (*)(am_device_service_connection *, void *, size_t));
 
 #undef BINDFUN
 
@@ -134,4 +136,22 @@ void mobile_device_lib_t::AMDServiceConnectionInvalidate(am_device_service_conne
 int mobile_device_lib_t::AMDServiceConnectionGetSocket(am_device_service_connection *handle) const
 {
   return _AMDServiceConnectionGetSocket(handle);
+}
+
+//------------------------------------------------------------------------------
+ssize_t mobile_device_lib_t::AMDServiceConnectionSend(
+        am_device_service_connection *handle,
+        const void *buf,
+        size_t len) const
+{
+  return _AMDServiceConnectionSend(handle, buf, len);
+}
+
+//------------------------------------------------------------------------------
+ssize_t mobile_device_lib_t::AMDServiceConnectionReceive(
+        am_device_service_connection *handle,
+        void *buf,
+        size_t size) const
+{
+  return _AMDServiceConnectionReceive(handle, buf, size);
 }

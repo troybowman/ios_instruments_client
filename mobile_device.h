@@ -42,6 +42,8 @@ class mobile_device_lib_t
   mach_error_t (*_AMDeviceSecureStartService)(am_device *, CFStringRef, int *, am_device_service_connection **);
   void (*_AMDServiceConnectionInvalidate)(am_device_service_connection *);
   int (*_AMDServiceConnectionGetSocket)(am_device_service_connection *);
+  ssize_t (*_AMDServiceConnectionSend)(am_device_service_connection *, const void *, size_t);
+  ssize_t (*_AMDServiceConnectionReceive)(am_device_service_connection *, void *, size_t);
 
 public:
   mobile_device_lib_t(void) { reset(); }
@@ -63,6 +65,8 @@ public:
   mach_error_t AMDeviceSecureStartService(am_device *, CFStringRef, int *, am_device_service_connection **) const;
   void AMDServiceConnectionInvalidate(am_device_service_connection *) const;
   int AMDServiceConnectionGetSocket(am_device_service_connection *) const;
+  ssize_t AMDServiceConnectionSend(am_device_service_connection *handle, const void *buf, size_t len) const;
+  ssize_t AMDServiceConnectionReceive(am_device_service_connection *handle, void *buf, size_t size) const;
 };
 
 extern mobile_device_lib_t MobileDevice;

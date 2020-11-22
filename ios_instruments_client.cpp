@@ -12,6 +12,7 @@ static int pid2kill = -1;               // process id to kill ("kill" option)
 static const char *bid2launch = NULL;   // bundle id of app to launch ("launch" option)
 static bool proclist = false;           // print the process list ("proclist" option)
 static bool applist = false;            // print the application list ("applist" option)
+static bool ssl_enabled = false;        // does the instruments server use SSL?
 
 //-----------------------------------------------------------------------------
 void message_aux_t::append_int(int32_t val)
@@ -98,9 +99,21 @@ static void device_callback(am_device_notification_callback_info *cbi, void *arg
 
     if ( err != kAMDSuccess )
     {
-      fprintf(stderr, "Failed to start the instruments server (0x%x). "
-               "Perhaps DeveloperDiskImage.dmg is not installed on the device?\n", err);
-      break;
+      // try again with an SSL-enabled service, commonly used after iOS 14
+      err = MobileDevice.AMDeviceSecureStartService(
+              cbi->dev,
+              CFSTR("com.apple.instruments.remoteserver.DVTSecureSocketProxy"),
+              NULL,
+              connptr);
+
+      if ( err != kAMDSuccess )
+      {
+        fprintf(stderr, "Failed to start the instruments server (0x%x). "
+                 "Perhaps DeveloperDiskImage.dmg is not installed on the device?\n", err);
+        break;
+      }
+
+      ssl_enabled = true;
     }
 
     if ( verbose )
@@ -204,8 +217,10 @@ static bool send_message(
   append_b(msg, sel);
 
   size_t msglen = msg.size();
-  int sock = MobileDevice.AMDServiceConnectionGetSocket(conn);
-  if ( write(sock, msg.data(), msglen) != msglen )
+  ssize_t nsent = ssl_enabled
+                ? MobileDevice.AMDServiceConnectionSend(conn, msg.data(), msglen)
+                : write(MobileDevice.AMDServiceConnectionGetSocket(conn), msg.data(), msglen);
+  if ( nsent != msglen )
   {
     fprintf(stderr, "Failed to send 0x%lx bytes of message: %s\n", msglen, strerror(errno));
     return false;
@@ -232,7 +247,9 @@ static bool recv_message(
   while ( true )
   {
     DTXMessageHeader mheader;
-    ssize_t nrecv = read(sock, &mheader, sizeof(mheader));
+    ssize_t nrecv = ssl_enabled
+                  ? MobileDevice.AMDServiceConnectionReceive(conn, &mheader, sizeof(mheader))
+                  : read(sock, &mheader, sizeof(mheader));
     if ( nrecv != sizeof(mheader) )
     {
       fprintf(stderr, "failed to read message header: %s, nrecv = %lx\n", strerror(errno), nrecv);
@@ -295,7 +312,11 @@ static bool recv_message(
     uint32_t nbytes = 0;
     while ( nbytes < mheader.length )
     {
-      nrecv = read(sock, data+nbytes, mheader.length-nbytes);
+      uint8_t *curptr = data + nbytes;
+      size_t curlen = mheader.length - nbytes;
+      nrecv = ssl_enabled
+            ? MobileDevice.AMDServiceConnectionReceive(conn, curptr, curlen)
+            : read(sock, curptr, curlen);
       if ( nrecv <= 0 )
       {
         fprintf(stderr, "failed reading from socket: %s\n", strerror(errno));
